@@ -6,8 +6,11 @@ pub const LocalStorage = struct {
 
     pub fn init(dir: []const u8) !LocalStorage {
         var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-        try std.fs.makeDirAbsolute(dir);
-        var root = try std.fs.openDirAbsolute(dir, .{});
+        if (std.fs.makeDirAbsolute(dir)) |_| {} else |err| switch (err) {
+            error.PathAlreadyExists => {},
+            else => |e| return e,
+        }
+        const root = try std.fs.openDirAbsolute(dir, .{});
         return LocalStorage{
             .gpa = gpa,
             .root = root,
@@ -19,9 +22,9 @@ pub const LocalStorage = struct {
     }
 
     pub fn has(self: *LocalStorage, sum: []const u8) bool {
-        try self.root.statFile(sum) catch {
+        const stat = self.root.statFile(sum) catch {
             return false;
         };
-        return true;
+        return stat.kind == std.fs.File.Kind.file;
     }
 };

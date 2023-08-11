@@ -13,8 +13,10 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
+    const store = try blob.LocalStorage.init("/tmp/zor");
+
     var app = App{
-        .store = blob.LocalStorage.init("/tmp/zor"),
+        .store = store,
     };
 
     const stype = httpz.ServerCtx(*App, *App);
