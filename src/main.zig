@@ -33,12 +33,14 @@ pub fn main() !void {
 }
 
 fn headBlobs(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
-    const repo = req.params.get("repo").?;
     const sum = req.params.get("sum").?;
-    const has = try app.store.has(sum);
-    if (!has) {}
-    std.log.debug("{s} {s}", .{ repo, sum });
-    _ = res;
+    if (!app.store.has(sum)) {
+        std.log.debug("blob {s} not found", .{sum});
+        res.status = 404;
+        return;
+    } else {
+        std.log.debug("blob {s} found OK", .{sum});
+    }
 }
 
 fn notFound(app: *App, req: *httpz.Request, res: *httpz.Response) !void {

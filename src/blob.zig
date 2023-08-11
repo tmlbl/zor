@@ -2,13 +2,15 @@ const std = @import("std");
 
 pub const LocalStorage = struct {
     gpa: std.heap.GeneralPurposeAllocator(.{}),
-    root: []const u8,
+    root: std.fs.Dir,
 
-    pub fn init(dir: []const u8) LocalStorage {
+    pub fn init(dir: []const u8) !LocalStorage {
         var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+        try std.fs.makeDirAbsolute(dir);
+        var root = try std.fs.openDirAbsolute(dir, .{});
         return LocalStorage{
             .gpa = gpa,
-            .root = dir,
+            .root = root,
         };
     }
 
@@ -16,12 +18,10 @@ pub const LocalStorage = struct {
         _ = self;
     }
 
-    pub fn has(self: *LocalStorage, sum: []const u8) !bool {
-        const path = try std.fmt.allocPrint(self.gpa.allocator(), "{s}/{s}", .{ self.root, sum });
-        // var stat = std.os.Stat.init();
-        // std.os.system.stat(path, &stat);
-        std.log.debug("Checking blob path {s}", .{path});
-
+    pub fn has(self: *LocalStorage, sum: []const u8) bool {
+        try self.root.statFile(sum) catch {
+            return false;
+        };
         return true;
     }
 };
