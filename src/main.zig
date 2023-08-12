@@ -11,6 +11,13 @@ const App = struct {
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer {
+        const deinit_status = gpa.deinit();
+        _ = deinit_status;
+        //fail test; can't try in defer as defer is executed after we return
+        // if (deinit_status == .leak) expect(false) catch @panic("TEST FAIL");
+    }
+
     const allocator = gpa.allocator();
 
     const store = try blob.LocalStorage.init("/tmp/zor");
@@ -30,6 +37,7 @@ pub fn main() !void {
 
     router.get("/v2", v2);
     router.head("/v2/:repo/blobs/:sum", headBlobs);
+    router.post("/v2/:repo/blobs/uploads", createUpload);
 
     try server.listen();
 }
@@ -43,6 +51,12 @@ fn headBlobs(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     } else {
         std.log.debug("blob {s} found OK", .{sum});
     }
+}
+
+fn createUpload(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
+    _ = res;
+    _ = req;
+    try app.store.createUpload();
 }
 
 fn notFound(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
