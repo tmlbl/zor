@@ -5,8 +5,14 @@ const gossip = @import("./gossip.zig");
 const errors = @import("./error.zig");
 const blob = @import("./blob.zig");
 
+const Config = struct {
+    port: u16,
+};
+
 const App = struct {
+    a: std.mem.Allocator,
     store: blob.LocalStorage,
+    config: Config,
 };
 
 pub fn main() !void {
@@ -23,11 +29,15 @@ pub fn main() !void {
     const store = try blob.LocalStorage.init("/tmp/zor");
 
     var app = App{
+        .a = gpa.allocator(),
         .store = store,
+        .config = Config{
+            .port = 5882,
+        },
     };
 
     const stype = httpz.ServerCtx(*App, *App);
-    var server = try stype.init(allocator, .{ .port = 5882 }, &app);
+    var server = try stype.init(allocator, .{ .port = app.config.port }, &app);
 
     server.notFound(notFound);
 
@@ -38,6 +48,7 @@ pub fn main() !void {
     router.get("/v2", v2);
     router.head("/v2/:repo/blobs/:sum", headBlobs);
     router.post("/v2/:repo/blobs/uploads", createUpload);
+    router.patch("/v2/:repo/blobs/uploads/:id", uploadBlob);
 
     try server.listen();
 }
@@ -54,9 +65,46 @@ fn headBlobs(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
 }
 
 fn createUpload(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
+    const repo = req.params.get("repo").?;
+    const id = try app.store.createUpload();
+    const host = req.headers.get("host").?;
+
+    const loc = try std.fmt.allocPrint(app.a, "http://{s}/v2/{s}/blobs/uploads/{s}", .{
+        host,
+        repo,
+        id,
+    });
+    // defer app.a.free(loc);
+    res.headers.add("Location", loc);
+
+    const idStr = try std.fmt.allocPrint(app.a, "{s}", .{id});
+    res.headers.add("Docker-Upload-Uuid", idStr);
+
+    res.headers.add("Range", "0-0");
+
+    res.status = 202; // Accepted
+}
+
+fn uploadBlob(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     _ = res;
-    _ = req;
-    try app.store.createUpload();
+    const repo = req.params.get("repo").?;
+    _ = repo;
+    const id = req.params.get("id").?;
+
+    // open the upload file
+    const file = try app.store.uploadDir.openFile(id, .{
+        .mode = std.fs.File.OpenMode.write_only,
+    });
+
+    if (try req.body()) |body| {
+        const end = try file.getEndPos();
+        try file.seekTo(end);
+        try file.writeAll(body);
+    } else {
+        std.log.debug("didn't write anything...", .{});
+    }
+
+    file.close();
 }
 
 fn notFound(app: *App, req: *httpz.Request, res: *httpz.Response) !void {

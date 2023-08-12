@@ -45,16 +45,16 @@ pub const LocalStorage = struct {
         return stat.kind == std.fs.File.Kind.file;
     }
 
-    pub fn createUpload(self: *LocalStorage) !void {
+    pub fn createUpload(self: *LocalStorage) ![]const u8 {
         const a = self.gpa.allocator();
 
         const id = uuid.newV4();
-        var path = try std.fmt.allocPrint(a, "{}", .{id});
+        var path = try std.fmt.allocPrint(a, "{s}", .{id});
         std.log.debug("creating upload at {s}", .{path});
 
         const ufile = try self.uploadDir.createFile(path, .{});
         ufile.close();
 
-        a.free(path);
+        return path;
     }
 };
