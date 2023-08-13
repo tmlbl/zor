@@ -10,7 +10,6 @@ fn initDir(dir: []const u8) !void {
 }
 
 pub const LocalStorage = struct {
-    gpa: std.heap.GeneralPurposeAllocator(.{}),
     root: []const u8,
     blobDir: std.fs.Dir,
     uploadDir: std.fs.Dir,
@@ -27,7 +26,6 @@ pub const LocalStorage = struct {
         const uploadDir = try std.fs.openDirAbsolute(uploadDirPath, .{});
 
         return LocalStorage{
-            .gpa = gpa,
             .root = dir,
             .blobDir = blobDir,
             .uploadDir = uploadDir,
@@ -35,7 +33,7 @@ pub const LocalStorage = struct {
     }
 
     pub fn deinit(self: *LocalStorage) !void {
-        try self.gpa.deinit();
+        _ = self;
     }
 
     pub fn has(self: *LocalStorage, sum: []const u8) bool {
@@ -45,9 +43,7 @@ pub const LocalStorage = struct {
         return stat.kind == std.fs.File.Kind.file;
     }
 
-    pub fn createUpload(self: *LocalStorage) ![]const u8 {
-        const a = self.gpa.allocator();
-
+    pub fn createUpload(self: *LocalStorage, a: std.mem.Allocator) ![]const u8 {
         const id = uuid.newV4();
         var path = try std.fmt.allocPrint(a, "{s}", .{id});
         std.log.debug("creating upload at {s}", .{path});

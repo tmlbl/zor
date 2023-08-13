@@ -66,10 +66,10 @@ fn headBlobs(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
 
 fn createUpload(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     const repo = req.params.get("repo").?;
-    const id = try app.store.createUpload();
+    const id = try app.store.createUpload(res.arena);
     const host = req.headers.get("host").?;
 
-    const loc = try std.fmt.allocPrint(app.a, "http://{s}/v2/{s}/blobs/uploads/{s}", .{
+    const loc = try std.fmt.allocPrint(res.arena, "http://{s}/v2/{s}/blobs/uploads/{s}", .{
         host,
         repo,
         id,
@@ -77,7 +77,7 @@ fn createUpload(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     // defer app.a.free(loc);
     res.headers.add("Location", loc);
 
-    const idStr = try std.fmt.allocPrint(app.a, "{s}", .{id});
+    const idStr = try std.fmt.allocPrint(res.arena, "{s}", .{id});
     res.headers.add("Docker-Upload-Uuid", idStr);
 
     res.headers.add("Range", "0-0");
